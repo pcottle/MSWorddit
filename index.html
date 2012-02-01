@@ -113,6 +113,7 @@ function addDot()
 
 function cbfunc(response)
 {
+	//console.log("callback is back");
 	$('.loading').fadeOut(500);
 	thedata = response;
 	//access the current page and set the stuff
@@ -163,9 +164,10 @@ function populateCommentsSelfPage(response)
 	thePagetempHTML += maintext;
 	thePagetempHTML += '<div class="bigdivider"></div>';
 	
+	console.log(response);
 	try
 	{
-		var commentsRoot = response.query.results.body[4].div.div[2].div[2].div;
+		var commentsRoot = response.query.results.body[2].div.div[2].div[2].div;
 	}
 	catch (err)
 	{
@@ -265,6 +267,7 @@ function forwardPage()
 function subreddit()
 {
 	var thesubreddit = $('#thesubreddit').val();
+	//console.log("loading this" + thesubreddit);
 	//super random bug, i donno why this happens
 	currPage += 1;
 	performLoad('http://reddit.com/r/' + thesubreddit + '/','subreddit');
@@ -368,6 +371,7 @@ function getTextFromDOMTree(root,text)
 
 function populateSubreddit(response)
 {
+	//console.log("Trying to popualte the page....");
 	//dont clear the page on endless loading...
 	if(shouldClear)
 	{
@@ -376,19 +380,15 @@ function populateSubreddit(response)
 
 	//build a giant string with all the links and stuff. we also need to
 	//populate the click functions for the anchors and some other things
+	console.log(response);
 	try {
-		root = response.query.results.body[3].div.div[2].div.div;
+		root = response.query.results.body[2].div.div[2].div.div;
 	}
 	catch(err)
 	{
 		//subreddits with custom formatting... tourdefrance, starcraft, etc
 		//might need a loop or a ton of these or something...
-		try {
-			root = response.query.results.body[3].div.div[1].div;
-		}
-		catch(err)
-		{
-		}
+		root = response.query.results.body[2].div.div[1].div;
 	}
 
 	var temphtml = '';
@@ -471,7 +471,10 @@ function populateMain(response)
 	}	
 	//build a giant string with all the links and stuff. we also need to
 	//populate the click functions for the anchors and some other things
-	root = response.query.results.body[3].div.div[2].div.div;
+
+	//console.log(response);
+	root = response.query.results.body[2].div.div[2].div.div;
+
 	var temphtml = '';
 	for(var i = 0; i < root.length; i += 2)
 	{
@@ -774,6 +777,7 @@ function commentClick()
 function performLoad(url,type)
 {
 	//only do the below on new pages, not bottomless loading
+	console.log("loading this" + url + " and shouldclear" + shouldClear);
 	if(shouldClear)
 	{
 		var page = new myPage(type,url)
@@ -820,8 +824,8 @@ $(document).ready(function(){
 	$('.backbutton').click(backPage);
 	$('.forwardbutton').click(forwardPage);
 	setTimeout('checkScroll()',2000);
-	//performLoad('http://reddit.com/','main');
-	$('#page').html('<br>Gahhh, Reddit changed their HTML, so all my algos are toast. I\'ll fixed this over winter break, until then use <a href="http://msoutlookit.com">outlookit</a>');
+	performLoad('http://reddit.com/','main');
+	//$('#page').html('<br>Gahhh, Reddit changed their HTML, so all my algos are toast. I\'ll fixed this over winter break, until then use <a href="http://msoutlookit.com">outlookit</a>');
 	$('#thesubreddit').keyup(function(event){
 		if(event.keyCode == 13)
 		{
@@ -1263,12 +1267,6 @@ cursor:pointer;
 </div>
 
 <div class="donatebuttonhover">
-</div>
-
-<div class="donatebutton" style="display:none;left:20px;">
-Hey! imgur blocked at work? Check out the filmot mirror version <a href="http://msworddit.com/greg.html"> here!</a> </br>
-<span style="font-size:10pt"> This window will close in a few seconds automatically. Or you can click it </span></br></br>
-
 </div>
 
 
