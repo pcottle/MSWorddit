@@ -1,0 +1,1281 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml"><head>
+
+
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"><title>Worddit Document</title>
+
+<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.6.1/jquery.min.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+//copyright 2011 peter cottle
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ THANKS TO ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+//Y P....n
+//E P.....k
+//N S....l
+//C P P....n
+//K H..g
+//J M.......k
+//J H**r
+//E M******n
+//K S*****e
+//K W***h
+//D M****s / bhm
+//D L***y
+//J L**a for donating one CENT lol. It's ok we know each other in real life :P
+//S M***r
+//M E******m
+//B L*******r
+//K S*****t
+//L G******
+//      ___           ___           ___           ___           ___           ___     
+//     /\  \         /\__\         /\  \         /\__\         /\__\         /\  \    
+//     \:\  \       /:/  /        /::\  \       /::|  |       /:/  /        /::\  \   
+//      \:\  \     /:/__/        /:/\:\  \     /:|:|  |      /:/__/        /:/\ \  \  
+//      /::\  \   /::\  \ ___   /::\~\:\  \   /:/|:|  |__   /::\__\____   _\:\~\ \  \ 
+//     /:/\:\__\ /:/\:\  /\__\ /:/\:\ \:\__\ /:/ |:| /\__\ /:/\:::::\__\ /\ \:\ \ \__\
+//    /:/  \/__/ \/__\:\/:/  / \/__\:\/:/  / \/__|:|/:/  / \/_|:|~~|~    \:\ \:\ \/__/
+//   /:/  /           \::/  /       \::/  /      |:/:/  /     |:|  |      \:\ \:\__\  
+//   \/__/            /:/  /        /:/  /       |::/  /      |:|  |       \:\/:/  /  
+//                   /:/  /        /:/  /        /:/  /       |:|  |        \::/  /   
+//                   \/__/         \/__/         \/__/         \|__|         \/__/    
+// for donating!!! Very much appreciated :D
+// If you don't want your initials in the source, lemme know and I'll take them off.
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+function myPage(type,url)
+{
+	this.type = type;
+	this.html = null;
+	this.url = url;
+	this.json = null;
+	this.scrollpos = null;
+}
+
+headers = ['%d people once agreed with %who when he said "%text." Captivating to say the least. %comments ensued.',
+			'Once upon a time, %d years ago, a great person called %who said "%text." That single quote left many speechless including %comments, but that was understandable because they were 12 years old and what is this?',
+			'Just to make sure he beat the horse completely to death the %dth time, a scumbag %who said "%text" and then preceded to do the exact opposite of what he just said. This was all captured in an image and reposted to the front page many times, each with %comments.',
+			'Too often do we forget the battles fought by Lulsec and Anon, including brethern %who who chanted "%text" as he marched into battle %d years ago. He slayed %comments in the field with grammar corrections.',
+			'A quick brown fox jumped over the lazy dog in %d milliseconds. This caused the amazon cloud service to crash, leaving just a banner of "%text" from %who and %comments strewed about.',
+			];
+			
+filler = [' Now this is the really difficult part.',' Senseless writing that could be seen by millions of people... what an opportunity wasted!.',
+		' Man imagine if your coworker just walked up and started reading. They would totally find out... hopefully they wouldn\'t click anything.',
+		' Maybe I should just put random entries from enclyclopedia dramatica on here. Actually, make it wikipedia so you learn something.',
+		' I really wanted do to that thing where you red-underline the text like if it\'s misspelled, but that would require another PNG image and probably be more trouble than it\'s worth',];
+
+
+pageArray = new Array();
+currPage = -1;
+nextType = null;
+thedata = null;
+shouldClear = false;
+thelastclass = '';
+currCountAfter = 0;
+animateStep = 1;
+isEditMode = false;
+
+function getRandomHeader()
+{
+	var j = Number(Math.floor(Math.random() * headers.length));
+	return headers[j];
+}
+
+function getRandomFiller()
+{
+	var temptext = '';
+	var howmuch = Number(Math.floor(Math.random() * 4 + 2));
+	for(var j = 0; j < howmuch; j++)
+	{
+		temptext += filler[Number(Math.floor(Math.random() * filler.length))];
+	}
+	return temptext;
+}
+
+function yqlQuery(query, callback)
+{
+	var yqlURL = 'http://query.yahooapis.com/v1/public/yql';
+	var data = {
+		q:query,
+		format:'json',
+		env:'store://datatables.org/alltableswithkeys',
+		callback:'cbfunc'
+	}
+	$.get(yqlURL,data,callback,'jsonp');
+}
+
+function addDot()
+{
+	if(isLoading)
+	{
+		$('#page').html($('#page').html() + '.');
+		setTimeout('addDot()',200);
+	}
+}
+
+function cbfunc(response)
+{
+	$('.loading').fadeOut(500);
+	thedata = response;
+	//access the current page and set the stuff
+	pageArray[currPage].json = response;
+	
+	if(pageArray[currPage].type == 'main')
+	{
+		populateMain(response);
+	}
+	else if (pageArray[currPage].type == 'comments')
+	{
+		populateCommentsSelfPage(response);
+	}
+	else if (pageArray[currPage].type == 'subreddit')
+	{
+		populateSubreddit(response);
+	}
+	isLoading = false;
+}
+
+thePagetempHTML = '';
+
+function populateCommentsSelfPage(response)
+{
+	$('#page').html('');
+	thePagetempHTML = '';
+	
+	maintext = '';
+	try
+	{
+		var maintextroot = response.query.results.body[4].div.div[1].div[0].div[1].div.form.div.div;
+		maintext = getTextFromDOMTree(maintextroot,'');
+	}
+	catch(err)
+	{
+		//not a self page, get the title?
+		try
+		{
+			maintext = response.query.results.body[0].div.div[0].div[1].p[0].a.content;
+		}
+		catch (err)
+		{
+			//ok wtf, weird comment page
+		}
+	}
+
+
+	thePagetempHTML += maintext;
+	thePagetempHTML += '<div class="bigdivider"></div>';
+	
+	try
+	{
+		var commentsRoot = response.query.results.body[4].div.div[2].div[2].div;
+	}
+	catch (err)
+	{
+		//not a self page
+		try
+		{
+			var commentsRoot = response.query.results.body[1].div.div[2].div;
+		}
+		catch (err)
+		{
+			var commentsRoot = response.query.results.body[3].div.div[2].div[2].div;
+		}
+	}
+	var temphtml = '';
+
+	for(var i = 0; i < commentsRoot.length; i+= 2)
+	{
+		try {
+			var jsontext =  JSON.stringify(commentsRoot[i].div[0].div[1].form.div.div);
+
+			var alltext = '';
+			alltext = getTextFromDOMTree(commentsRoot[i].div[0].div[1].form.div.div,alltext);
+			
+			var username = commentsRoot[i].div[0].div[0].a[1].content;
+			var usernamelink = commentsRoot[i].div[0].div[0].a[1].href;
+			var likes = commentsRoot[i].div[0].div[0].span[2].content;
+			
+			thePagetempHTML += '<div class="rootcomment">';
+			thePagetempHTML += alltext + '<span class="username">' + String(likes) + ' -- ' + username + "</span>";
+			thePagetempHTML += '</div>';
+			//if there are child comments, add those too
+			
+			try {
+				var childrenRoot = commentsRoot[i].div[1].div.div;
+				addChildrenComments(childrenRoot,0);
+
+			}
+			catch (err)
+			{
+			}
+			//still have no idea where this div comes from
+			thePagetempHTML += "</div>"
+			thePagetempHTML += '<div class="divider"></div>';
+		}
+		catch(err)
+		{
+		}
+	}
+	$('#page').html(thePagetempHTML);
+	commentPageEvents();
+	pageArray[currPage].html = thePagetempHTML;
+}
+function commentPageEvents()
+{
+	$('.expando').click(function(){
+			var tempid = $(this).attr('id');
+			var finder = '#img' + tempid;
+			$(finder).toggle();
+		});
+}
+
+function backPage()
+{
+	if(currPage >= 1 && !isLoading)
+	{
+		currPage -= 1;
+		$('#page').html(pageArray[currPage].html);
+		$(document).scrollTop(pageArray[currPage].scrollpos);
+
+		if(pageArray[currPage].type == 'main' || pageArray[currPage].type == 'subreddit')
+		{
+			populateMainEvents();
+		}
+		else if (pageArray[currPage].type == 'comments')
+		{
+			//this is a huge todo because we would need to get user pages working...
+			commentPageEvents();
+		}	
+	}
+}
+
+function forwardPage()
+{
+	if(pageArray[currPage+1] != null && !isLoading)
+	{
+		//set out current scroll pos
+		pageArray[currPage].scrollpos = $(document).scrollTop();
+		$('#page').html(pageArray[currPage+1].html);
+		currPage += 1;
+		if(pageArray[currPage].type == 'main')
+		{
+			populateMainEvents();
+		}
+	}
+}
+
+function subreddit()
+{
+	var thesubreddit = $('#thesubreddit').val();
+	//super random bug, i donno why this happens
+	currPage += 1;
+	performLoad('http://reddit.com/r/' + thesubreddit + '/','subreddit');
+	return false;
+}
+
+function addChildrenComments(childrenRoot,level)
+{
+	for (var i = 0; i < childrenRoot.length; i+= 2)
+	{
+		thePagetempHTML += '<div class="child child' + String(level) + '">';
+		var alltext = '';
+		alltext = getTextFromDOMTree(childrenRoot[i].div[0].div[1].form.div.div,alltext);
+		
+		var username = childrenRoot[i].div[0].div[0].a[1].content;
+		var usernamelink = childrenRoot[i].div[0].div[0].a[1].href;
+		var likes = childrenRoot[i].div[0].div[0].span[2].content;
+		
+		thePagetempHTML += alltext + ' <span class="username"> ' + String(likes) + ' -- '  + username + '</span>';
+		//if there are child comments, add those too
+		try {
+			childrenRoot = childrenRoot[i].div[1].div.div;
+			addChildrenComments(childrenRoot,level+1);
+			thePagetempHTML += '</div>';
+		}
+		catch (err)
+		{
+			thePagetempHTML += '</div>';
+		}
+		thePagetempHTML += '</div>';
+	}
+}
+
+function getTextFromDOMTree(root,text)
+{
+	// this function does a lot. it basically traverses the tree
+	// and builds out a fairly representative HTML string from the contents.
+	// this includes going through and looping over arrays and such
+
+	// this function is recursive as well. so start with the simple things
+
+	if (isObject(root))
+	{
+		for (var key in root)
+		{
+			if (isObject(root[key]))
+			{
+				text += '<' + key + '>';
+				text += getTextFromDOMTree(root[key],'');
+				text += '</' + key + '>';
+			}
+			else if (isArray(root[key]))
+			{
+				for(var i = 0; i < root[key].length; i++)
+				{
+					text += '<' + key + '>';
+					text += getTextFromDOMTree(root[key][i],'');
+					text += '</' + key + '>';
+				}
+			}
+			else
+			{
+				if(key == 'p' || key == 'li' || key == 'em' || key == 'strong' || key == 'code')
+				{
+					text += '<' + key + '>' + root[key] + '</' + key + '>';
+				}
+				else if (key == 'href')
+				{
+					if(isImgur(root[key]))
+					{
+						text += makeImgurExpando(root[key]," ~linked img~ ");
+					}
+					else
+					{
+						text += '<a href="' + root[key] + '">' + root[key] + '</a> ';
+					}
+				}
+				else if (key == 'content')
+				{
+					//sometimes we have content from a link, other times from an em
+					if(root[key].substring(0,7) != 'http://')
+					{
+						text += root[key];
+					}
+				}
+				else
+				{
+					text += '';
+				}
+			}
+		}
+	}
+	else
+	{
+		//this is when its called on an array of strings
+		text += root;
+	}
+
+	return text;
+}
+
+function populateSubreddit(response)
+{
+	//dont clear the page on endless loading...
+	if(shouldClear)
+	{
+		$('#page').html('');
+	}
+
+	//build a giant string with all the links and stuff. we also need to
+	//populate the click functions for the anchors and some other things
+	try {
+		root = response.query.results.body[3].div.div[2].div.div;
+	}
+	catch(err)
+	{
+		//subreddits with custom formatting... tourdefrance, starcraft, etc
+		//might need a loop or a ton of these or something...
+		try {
+			root = response.query.results.body[3].div.div[1].div;
+		}
+		catch(err)
+		{
+		}
+	}
+
+	var temphtml = '';
+	for(var i = 0; i < root.length; i += 2)
+	{
+		var externalLink = root[i].div[1].p[0].a.href;
+		var text = root[i].div[1].p[0].a.content;
+		var when = root[i].div[1].p[1].a.content;
+		var dislikes = root[i].div[0].div[0].p;
+		var likes = root[i].div[0].div[2].p;
+		var who = 'subredditor';
+		var comments = root[i].div[1].ul.li[0].a.content;
+		var commentLink = root[i].div[1].ul.li[0].a.href;
+		try {
+			//this fails on IE for some reason...
+			//FIGURED IT OUT. wow safari sucks for not being able
+			//to parse out a reserved keyword from a json object
+			//IE and safari both messing up on the same thing??
+			//wow hell must be freezing over
+			thelastclass = root[i]['class'];	
+		}
+		catch (err)
+		{
+			//this means that endless loading will be teh broken
+		}
+		var build = '&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;' + getRandomHeader();
+		build = '<p>' + build + getRandomFiller() + '</p>';
+		build = build.replace('%who',who);
+		build = build.replace('%d',String(likes));
+		
+		if(externalLink.substring(0,3) == '/r/')
+		{
+			externalLink = 'http://reddit.com' + externalLink;
+		}
+		var linky = '<a class="comments" href="#" id="' + externalLink + '">' + text + '</a>';
+
+		//add imgur support
+		if (isImgur(externalLink))
+		{
+			linky = makeImgurExpando(externalLink,text);
+		}
+		else if (isYoutube(externalLink))
+		{
+			linky = makeYoutubeExpando(externalLink,text);
+		}
+		else if (externalLink.indexOf('reddit.com') == -1)
+		{
+			//if its not a reddit link
+			linky = getLynxdump(externalLink,text);
+		}
+		build = build.replace('%text',linky);
+		
+		var linky2 = '<a id="' + commentLink + '" class="comments" href="#">' + comments + '</a>';
+		build = build.replace('%comments',linky2);
+		
+		temphtml += build;
+		$('#page').append(build);
+	}
+	if(!shouldClear)
+	{
+		pageArray[currPage].html += temphtml;
+		animateScroll();
+	}
+	else
+	{
+		pageArray[currPage].html = temphtml;
+	}	
+	
+	populateMainEvents();
+}
+
+
+function populateMain(response)
+{
+	//dont clear the page on endless loading...
+	//this is a giant TODO because there is that crazy random letter gen for post-links...
+	if(shouldClear)
+	{
+		$('#page').html('');
+	}	
+	//build a giant string with all the links and stuff. we also need to
+	//populate the click functions for the anchors and some other things
+	root = response.query.results.body[3].div.div[2].div.div;
+	var temphtml = '';
+	for(var i = 0; i < root.length; i += 2)
+	{
+		var externalLink = root[i].div[1].p[0].a.href;
+		var text = root[i].div[1].p[0].a.content;
+		var when = root[i].div[1].p[1].a.content;
+		var dislikes = root[i].div[0].div[0].p;
+		var likes = root[i].div[0].div[2].p;
+		try {
+		var who = root[i].div[1].p[1].a[0].content;
+		} catch (err) { var who = 'unknown';}
+		var comments = root[i].div[1].ul.li[0].a.content;
+		var commentLink = root[i].div[1].ul.li[0].a.href;
+		thelastclass = root[i]['class'];
+		
+		var build = '&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;' + getRandomHeader();
+		build = '<p>' + build + getRandomFiller() + '</p>';
+		build = build.replace('%who',who);
+		build = build.replace('%d',String(likes));
+		
+		if(externalLink.substring(0,3) == '/r/')
+		{
+			externalLink = 'http://reddit.com' + externalLink;
+		}
+		var linky = '<a class="comments" href="#" id="' + externalLink + '">' + text + '</a>';
+
+		//add imgur support
+		if (isImgur(externalLink))
+		{
+			linky = makeImgurExpando(externalLink,text);
+		}
+		else if (isYoutube(externalLink))
+		{
+			linky = makeYoutubeExpando(externalLink,text);
+		}
+		else if (externalLink.indexOf('reddit.com') == -1)
+		{
+			//if its not a reddit link
+			linky = getLynxdump(externalLink,text);
+		}
+		build = build.replace('%text',linky);
+		
+		var linky2 = '<a id="' + commentLink + '" class="comments" href="#">' + comments + '</a>';
+		build = build.replace('%comments',linky2);
+		
+		temphtml += build;
+		$('#page').append(build);
+	}
+	if(!shouldClear)
+	{
+		pageArray[currPage].html += temphtml;
+		animateScroll();
+	}
+	else
+	{
+		pageArray[currPage].html = temphtml;
+	}
+	shouldClear = true;
+	populateMainEvents();
+}
+
+function animateScroll()
+{
+	//keep calling yourself to animate down
+	$(document).scrollTop($(document).scrollTop() + 5);
+	//a 10 px jump
+	// and run at 50hz?
+	animateStep += 1;
+	if(animateStep < 20)
+	{
+		setTimeout('animateScroll()',10);
+	}
+	else
+	{
+		animateStep = 0;
+	}
+}
+
+
+function populateMainEvents()
+{
+	$('a.comments').click(commentClick);
+	$('.expando').click(expandoClick);
+	$('.lynxexpando').click(lynxexpandoClick);
+
+}
+
+function lynxexpandoClick()
+{
+	var tempid = $(this).attr('id');
+	var finder = '#lynxexpando' + tempid;
+	$(finder).toggle();
+	if($(finder).text() == null || $(finder).text().length < 1)
+	{
+		//its empty, make the call
+		tempLynxAjaxID = finder;
+		//get the link
+		var finder2 = '#lynxlink' + tempid;
+		var thelink = $(finder2).attr('href');
+		$(finder).text('Loading... please wait :D this crap takes a while because its my server and not yahoo');
+		//now do the call!!!
+		$.post('http://www.thebearfeed.com/gettextdump/',{'link':thelink},textdumpBack,'jsonp');
+	}
+}
+
+function textdumpBack(data)
+{
+	textdump = data.textdump;
+	textdump = textdump.replace(/\n/g,'</br>');
+	$(tempLynxAjaxID).html(textdump);
+}
+
+
+function expandoClick()
+{
+	var tempid = $(this).attr('id');
+	var finder = '#img' + tempid;
+	$(finder).toggle()
+}
+
+function makeImgurExpando(externallink,title)
+{
+	//first, if not i.imgur.com then make it
+	//add support for non imgurthings
+	if(externallink.indexOf('i.imgur.com') == -1 && externallink.indexOf('imgur.com') != -1)
+	{
+		externallink.replace('imgur.com','i.imgur.com');
+	}
+	//also, if not .jpg or something, add a random file extension
+	//and the browser SHOULD look at the file to interpret the data anyways
+	if(externallink.substr(-4,1) != '.')
+	{
+		//add an extension?
+		externallink += '.jpg';
+	}
+	var randId = String(Math.floor(Math.random() * 10000));
+	//yes i know im using random numbers and there are collision issues but i dont think
+	// its super critical :P
+	var expando = '<div class="expando" id="' + randId + '" >+</div>';
+	expando += '<a href="javascript:void(0)" class="expando" id="' + randId + '">' + title + '</a>';
+	expando += '<img id="' + 'img' + randId + '" class="expandoimg" src="' + externallink + '" style="display:none" alt="redditlol"/>';
+	return expando;
+}
+
+function makeYoutubeExpando(externallink,title)
+{
+	//get the video ID
+	var normallink = /youtube\.com\/watch\?v=([-\w]+)/.exec(externallink);
+	if(normallink == null)
+	{
+		//for the shortened links
+		normallink = /youtu\.be\/([-\w]+)/.exec(externallink);
+	}
+	try{
+		var videoid = normallink[1];
+		var expando = '<div class="expando" id="' + videoid + '" >V</div>';
+		expando += '<a href="javascript:void(0)" class="expando" id="' + videoid + '">' + title + '</a>';
+		expando += '<div style="display:none" id="img' + videoid + '">';
+		expando += '<iframe ' + videoid + '" width="560" height="349"';
+		expando += ' src="http://www.youtube.com/embed/' + videoid + '" frameborder="0" allowfullscreen></iframe>';
+		expando += '</div>';
+		return expando;
+	}
+	catch(err)
+	{
+		return '<a href="' + externallink + '">' + title + '</a>';
+	}
+}
+
+function getLynxdump(externallink,title)
+{
+	//so we need to have a box in case someone wants to open this
+	//the ajax stuff will be handled in the click event I suppose
+	var randId = String(Math.floor(Math.random() * 100000));
+	var expando = '<div class="lynxexpando" id="' + randId + '">Lynx version</div>';
+	expando += '<a id="lynxlink' + randId + '" href="' + externallink + '">' + title + '</a>';
+	expando += '<div id="lynxexpando' + randId + '" class="lynxexpandodiv" style="display:none"></div>';
+	return expando;
+}
+
+
+function performBottomlessLoad()
+{
+	if(pageArray[currPage].type == 'main' || pageArray[currPage].type == 'subreddit')
+	{
+		var lastid = /id-(\w+)/.exec(thelastclass)[1];
+		currCountAfter += 25;	
+		var templink = currlink + '?count=' + currCountAfter + '&after=' + lastid;
+		shouldClear = false;
+		performLoad(templink,pageArray[currPage].type);
+	}
+}
+	
+function checkScroll()
+{
+	var ourPos = $(document).scrollTop();
+	var docHeight = $(document).height();
+	var screenHeight = $(window).height();
+	if(docHeight - ourPos < 1.25*screenHeight)
+	{
+		//go get more stuff if we arent loading or editing
+		if(!isLoading && !isEditMode)
+		{
+			performBottomlessLoad();
+		}
+	}
+	setTimeout("checkScroll()",200);
+}
+
+
+function isYoutube(externallink)
+{
+	if(externallink.indexOf('youtube.com') != -1 || externallink.indexOf('youtu.be') != -1)
+	{
+		return true;
+	}
+	else
+	{
+		return false;
+	}
+}
+
+
+function isImgur(externallink)
+{
+	var filetype = externallink.substr(-3,3).toLowerCase();
+	//add support for flickr and stuff
+	if(externallink.indexOf('imgur.com') != -1)
+	{
+		return true;
+	}
+	else if (filetype == 'png' || filetype == 'peg' || filetype == 'jpg' || filetype == 'gif')
+	{
+		return true;
+	}
+	else
+	{
+		return false;
+	}
+}
+
+function isActuallyImgur(externallink)
+{
+	if(externallink.indexOf('imgur.com') != -1)
+	{
+		return true;
+	}
+	else
+	{
+		return false;
+	}
+}
+
+
+function isObject(thing)
+{
+	return Object.prototype.toString.call(thing) == '[object Object]';
+}
+
+function isArray(thing)
+{
+	return Object.prototype.toString.call(thing) == '[object Array]';
+}
+
+function makeEditable()
+{
+	var thepage = $('#page').get(0);
+	thepage.contentEditable=true;
+	thepage.designMode='on';
+	isEditMode = true;
+	void 0;
+}
+
+function makeUnEditable()
+{
+	var thepage = $('#page').get(0);
+	isEditMode = false;
+	thepage.contentEditable=false;
+	thepage.designMode = 'off';
+	$('#page').html(pageArray[currPage].html);
+	if(pageArray[currPage].type == 'subreddit' || pageArray[currPage].type == 'main')
+	{
+		populateMainEvents();
+	}
+	else if (pageArray[currPage] == 'comments')
+	{
+		commentPageEvents();
+	}
+	void 0;
+}
+
+function commentClick()
+{
+	var commentlink = $(this).attr('id');
+	//also save the scroll position
+	pageArray[currPage].scrollpos = $(document).scrollTop();
+	performLoad(commentlink + '?sort=top','comments');
+}
+
+function performLoad(url,type)
+{
+	//only do the below on new pages, not bottomless loading
+	if(shouldClear)
+	{
+		var page = new myPage(type,url)
+		if(type == 'main' || type == 'subreddit')
+		{
+			currlink = url;
+		}
+		$('#page').html('');
+		currPage += 1;
+		//ugh. we have to fix this for that subreddit bug. this code just got ugly :O
+		if(currPage > pageArray.length)
+		{
+			//actually i think we fixed this because of the double event binding
+			//for the forward and back buttons
+			currPage -= 1;
+		}
+		pageArray[currPage] = page;
+	}
+	//build the query
+	var query = 'select p,a,div from html where url="' +
+			url + '"';
+	$('.loading').fadeIn(500);
+	yqlQuery(query,cbfunc);
+
+	// set the page to loading, except on bottomless, in which case just add loading
+	$('#page').html($('#page').html() + '</br>Loading');
+	setTimeout('addDot()',200);
+	isLoading = true;
+}
+
+function closeDonate()
+{
+	$('.donatebutton').slideUp();
+}
+	
+
+
+$(document).ready(function(){
+	$('#page').append("Hey!");
+	
+	shouldClear = true;
+	$('.editmodeButtonOn').click(makeEditable);
+	$('.editmodeButtonOff').click(makeUnEditable);
+	$('.backbutton').click(backPage);
+	$('.forwardbutton').click(forwardPage);
+	setTimeout('checkScroll()',2000);
+	//performLoad('http://reddit.com/','main');
+	$('#page').html('<br>Gahhh, Reddit changed their HTML, so all my algos are toast. I\'ll fixed this over winter break, until then use <a href="http://msoutlookit.com">outlookit</a>');
+	$('#thesubreddit').keyup(function(event){
+		if(event.keyCode == 13)
+		{
+			subreddit();
+		}
+	});
+	$('.donatebutton').slideToggle();
+	setTimeout('closeDonate()',10000);
+	$('.donatebutton').click(function(){
+	$(this).slideToggle();
+	});
+
+});
+
+</script>
+
+<style type="text/css">
+body {
+	font-family:"Times New Roman",Times,serif;
+	padding:0px;
+	margin:0px;
+	z-index:1;
+}
+
+div.dumbpixel {
+position:fixed;
+height:1px;
+width:100%;
+	  z-index:3;
+top:26px;
+left:200px;
+background:#D8F4FF;
+}
+
+div.dumbpixel2 {
+top:24px;
+}
+
+.username {
+	font-size:10pt;
+	color:#999999;
+}
+
+.forwardbutton {
+position:fixed;
+background:#FFF;
+opacity:0.0;
+top:3px;
+left:50px;
+height:20px;
+width:75px;
+z-index:30;
+cursor:pointer;
+cursor:hand;
+}
+.forwardbutton:hover {
+	opacity:0.2;
+}
+.backbutton:hover {
+	opacity:0.2;
+}
+
+.editmodeButton {
+	position:fixed;
+	z-index:30;
+	opacity:0.0;
+	cursor:pointer;
+	cursor:hand;
+	width:64px;
+	height:48px;
+	top:65px;
+	left:647px;
+	background-color:#FFF;
+}
+
+.editmodeButtonOff {
+left:719px;
+}
+
+.editmodeButton:hover {
+opacity:0.8;
+}
+
+
+div.expando {
+	display:inline-block;
+	margin:5px;
+	text-align:center;
+	vertical-align:center;
+	color:#FFF;
+	width:20px;
+	height:20px;
+	background:#0033CC;
+	opacity:0.5;
+	cursor:pointer;
+	cursor:hand;
+}
+div.expando:hover {
+opacity:1.0;
+}
+
+div.lynxexpando {
+	display:inline-block;
+	margin:5px;
+	text-align:center;
+	vertical-align:center;
+	color:#FFF;
+	width:60px;
+	height:20px;
+	background:#FF3300;
+	cursor:pointer;
+	opacity:0.3;
+	cursor:hand;
+}
+div.lynxexpando:hover {
+opacity:1.0;
+}
+
+.expandoimg {
+	display:block;
+	width:100%;
+	margin:20px;
+}
+
+.lynxexpandodiv {
+	display:block;
+	width:90%;
+	overflow: scroll;
+	background-color:#DDD;
+	height:300px;
+	border: solid 2px #0066FF;
+	padding:30px;
+	margin:10px;
+}
+
+
+div.topwindowbar {
+		width:100%;
+		height:45px;
+		background:#C0D8FC;
+		background-image:url('1.PNG');
+		background-repeat:repeat-x;
+		text-align:center;
+		padding-top:1px;
+		position:fixed;
+		top:0px;
+		left:0px;
+		color:#767A85;
+		z-index:3;
+}
+
+div.buttonbar {
+	height:90px;
+	width:100%;
+	background:#CAE3FF;
+	position:fixed;
+	top:50px;
+	background: #dde5f2; /* Old browsers */
+	background: -moz-linear-gradient(top, #dde5f2 0%, #c8d9ed 34%, #e0f2fc 100%); /* FF3.6+ */
+	background: -webkit-gradient(linear, left top, left bottom, color-stop(0%,#dde5f2), color-stop(34%,#c8d9ed), color-stop(100%,#e0f2fc)); /* Chrome,Safari4+ */
+	background: -webkit-linear-gradient(top, #dde5f2 0%,#c8d9ed 34%,#e0f2fc 100%); /* Chrome10+,Safari5.1+ */
+	background: -o-linear-gradient(top, #dde5f2 0%,#c8d9ed 34%,#e0f2fc 100%); /* Opera11.10+ */
+	background: -ms-linear-gradient(top, #dde5f2 0%,#c8d9ed 34%,#e0f2fc 100%); /* IE10+ */
+	filter: progid:DXImageTransform.Microsoft.gradient( startColorstr='#dde5f2', endColorstr='#e0f2fc',GradientType=0 ); /* IE6-9 */
+	background: linear-gradient(top, #dde5f2 0%,#c8d9ed 34%,#e0f2fc 100%); /* W3C */
+	border: 1px solid #93ACC2;
+	-moz-border-radius:4px;
+	-webkit-border-radius:4px;
+	border-radius:4px;
+	/*IE 7 AND 8 DO NOT SUPPORT BORDER RADIUS*/
+
+}
+
+div.upperleft {
+position:fixed;
+	z-index:22;	
+	top:0px;
+	left:0px;
+	background-image:url('2.PNG');
+	height:53px;
+	width:155px;
+}
+
+.divider {
+	height:2px;
+	width:100%;
+	background-color:#E6E6E6;
+}
+
+.bigdivider {
+	height:4px;
+	width:100%;
+	background-color:#B2B2B2;
+}
+
+.swoop {
+position:fixed;
+	z-index:0;
+	background-image:url('swoop.png');
+	width:457px;
+	height:155px;
+	left:0px;
+	top:143px;
+}
+
+
+.labels {
+position: fixed;
+left: 0px;
+top: 27px;
+background-image: url('3.PNG');
+z-index: 4;
+width: 521px;
+height: 24px;
+}
+
+.loading {
+	background-image: url('ajax-loader.gif');
+	height:16px;
+	width:16px;
+	position:fixed;
+	z-index:4;
+	top:200px;
+	right:0px;
+}
+.allbuttons {
+background-image:url('4.PNG');
+width:1214px;
+height:85px;
+position:fixed;
+left:6px;
+top:54px;
+	z-index:30;
+}
+a {
+	text-decoration:none;
+
+}
+
+.backbutton {
+	position:fixed;
+	opacity:0.0;
+	background:#FFF;
+	top:3px;
+	left:3px;
+	height:39px;
+	width:39px;
+	z-index:30;
+	cursor:pointer;
+}
+
+
+div.buttonbarwrapper {
+	border-top: solid 1px #B5CFE8;
+	height:117px;
+	width:100%;
+	background:#BFDBFF;
+	text-align:left;
+	font-size:13px;
+	position:relative;
+	top:4px;
+	color:#3D518E;
+	-moz-box-shadow:0px 1px 2px #000000;
+	-webkit-box-shadow:0px 1px 2px #000000;
+	box-shadow:0px 1px 2px #000000;
+	filter: progid:DXImageTransform.Microsoft.Shadow(strength=1, direction=180, color='#000000');
+	-ms-filter: "progid:DXImageTransform.Microsoft.Shadow(strength=1, Direction=180, Color='#000000')";
+	/*Shadows look very different in IE (Only cardinal directions supported)*/
+	/*INNER ELEMENTS MUST NOT BREAK THIS ELEMENTS BOUNDARIES*/
+	/*Element should have a background-color*/
+	/*All filters must be placed together*/
+	/*IE 7 AND 8 DO NOT SUPPORT BLUR PROPERTY OF SHADOWS*/
+		 
+}
+
+div.page {
+	overflow:hidden;
+	text-align:left;
+	background:#FFF;
+	border:solid 1px black;
+	-moz-box-shadow:3px 3px 4px #000000;
+	-webkit-box-shadow:3px 3px 4px #000000;
+	box-shadow:3px 3px 4px #000000;
+	filter: progid:DXImageTransform.Microsoft.Shadow(strength=3, direction=135, color='#000000');
+	-ms-filter: "progid:DXImageTransform.Microsoft.Shadow(strength=3, Direction=135, Color='#000000')";
+	/*Shadows look very different in IE (Only cardinal directions supported)*/
+	/*INNER ELEMENTS MUST NOT BREAK THIS ELEMENTS BOUNDARIES*/
+	/*Element should have a background-color*/
+	/*All filters must be placed together*/
+	/*IE 7 AND 8 DO NOT SUPPORT BLUR PROPERTY OF SHADOWS*/
+	margin-left:auto;
+	margin-right:auto;
+	width:53%;
+	min-width:600px;
+	padding:50px;
+	min-height:800px;
+	cursor:text;
+	z-index:2;
+	position: relative;
+	top: 170px;	
+}
+
+div.pagebackground {
+	position:fixed;
+	padding:50px;
+	height:100%;
+	z-index:-20;
+	width:100%;
+	margin-top:-10px;
+	background: #9cc4e7; /* Old browsers */
+	background: -moz-linear-gradient(top, #9cc4e7 0%, #557db0 59%, #5b83b7 100%); /* FF3.6+ */
+	background: -webkit-gradient(linear, left top, left bottom, color-stop(0%,#9cc4e7), color-stop(59%,#557db0), color-stop(100%,#5b83b7)); /* Chrome,Safari4+ */
+	background: -webkit-linear-gradient(top, #9cc4e7 0%,#557db0 59%,#5b83b7 100%); /* Chrome10+,Safari5.1+ */
+	background: -o-linear-gradient(top, #9cc4e7 0%,#557db0 59%,#5b83b7 100%); /* Opera11.10+ */
+	background: -ms-linear-gradient(top, #9cc4e7 0%,#557db0 59%,#5b83b7 100%); /* IE10+ */
+	filter: progid:DXImageTransform.Microsoft.gradient( startColorstr='#9cc4e7', endColorstr='#5b83b7',GradientType=0 ); /* IE6-9 */
+	background: linear-gradient(top, #9cc4e7 0%,#557db0 59%,#5b83b7 100%); /* W3C */
+}
+
+.child {
+	margin-left:20px;
+padding:2px;
+background:#EEE;
+		   border-top: 2px solid #E6E6E6;
+}
+
+div.textareaholder {
+position:fixed;
+top:64px;
+left:166px;
+z-index:35;
+width:100px;
+height:20px;
+}
+
+.subredditenter {
+	font-family:"HelveticaNeue-Light", "Helvetica Neue Light", "Helvetica Neue", Helvetica, Arial, sans-serif;
+width:133px;
+background-color:#EAF3FC;
+border:none;
+}
+
+.donatebutton {
+	position:fixed;
+	top:0px;
+	opacity:1;
+	left:300px;
+	height:140px;
+	width:200px;
+	z-index:50;
+	background: #dde5f2; /* Old browsers */
+	background: -moz-linear-gradient(top, #dde5f2 0%, #c8d9ed 34%, #e0f2fc 100%); /* FF3.6+ */
+	background: -webkit-gradient(linear, left top, left bottom, color-stop(0%,#dde5f2), color-stop(34%,#c8d9ed), color-stop(100%,#e0f2fc)); /* Chrome,Safari4+ */
+	background: -webkit-linear-gradient(top, #dde5f2 0%,#c8d9ed 34%,#e0f2fc 100%); /* Chrome10+,Safari5.1+ */
+	background: -o-linear-gradient(top, #dde5f2 0%,#c8d9ed 34%,#e0f2fc 100%); /* Opera11.10+ */
+	background: -ms-linear-gradient(top, #dde5f2 0%,#c8d9ed 34%,#e0f2fc 100%); /* IE10+ */
+	filter: progid:DXImageTransform.Microsoft.gradient( startColorstr='#dde5f2', endColorstr='#e0f2fc',GradientType=0 ); /* IE6-9 */
+	background: linear-gradient(top, #dde5f2 0%,#c8d9ed 34%,#e0f2fc 100%); /* W3C */
+	border: 1px solid #93ACC2;
+	-moz-border-radius:4px;
+	-webkit-border-radius:4px;
+	border-radius:4px;
+	/*IE 7 AND 8 DO NOT SUPPORT BORDER RADIUS*/
+-moz-box-shadow:0px 0px 15px #000000;
+-webkit-box-shadow:0px 0px 15px #000000;
+box-shadow:0px 0px 15px #000000;
+/*IE 7 AND 8 DO NOT SUPPORT BLUR PROPERTY OF SHADOWS*/
+text-align: center;
+color: #111;
+padding: 30px;
+cursor:pointer;
+}
+	
+
+</style>
+<!--[if IE]>
+<style type='text/css'>
+	.editmodeButton {
+	background:none;
+	}
+	.forwardbutton {
+	background:none;
+	}
+	.backbutton {
+	background:none;
+	}
+
+</style>
+<![endif]-->
+
+</head>
+<body>
+
+	<link rel="shortcut icon" href="/favicon.ico" />
+
+<div class="swoop">
+</div>
+
+<div class="backbutton">
+</div>
+<div class="pagebackground">
+		</div>
+<div class="entirewrapper">
+	<div class="topwindowbar">
+	New Document - <span style="color:#6077A3"> Microsoft Word </span> 
+		<div class="buttonbarwrapper">
+		<div class="labels">
+		</div>
+			<div class="buttonbar">
+			</div>
+		</div>
+	</div>
+			<div id="page" class="page" >
+			MS Worddit is loading, patience is a virtue :D
+			</div>
+</div>
+
+<div class="upperleft">
+</div>
+
+<div class="loading">
+</div>
+
+<div class="dumbpixel">
+</div>
+
+<div class="dumbpixel dumbpixel2">
+</div>
+
+<div class="forwardbutton">
+</div>
+<div class="allbuttons">
+</div>
+
+<div class="editmodeButton editmodeButtonOn">
+</div>
+
+<div class="editmodeButton editmodeButtonOff">
+</div>
+
+<div class="donatebuttonhover">
+</div>
+
+<div class="donatebutton" style="display:none;left:20px;">
+Hey! imgur blocked at work? Check out the filmot mirror version <a href="http://msworddit.com/greg.html"> here!</a> </br>
+<span style="font-size:10pt"> This window will close in a few seconds automatically. Or you can click it </span></br></br>
+
+</div>
+
+
+</div>
+
+<div class="textareaholder">
+<input type="text" value=" Times New Roman" id="thesubreddit" rows="1" cols="19" class="subredditenter">
+</div>
+
+</body></html>
