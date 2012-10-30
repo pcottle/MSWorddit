@@ -22,7 +22,7 @@ Since the HTML format is subject to change, this method is fairly brittle (it wa
 
 ## Usage
 
-The site still gets around [50,000 unique visitors](http://msworddit.com/awstats.html) per month at the time of writing, so I've left the server running for the time being, despite the code not being in the best shape.
+The site still gets around [50,000 unique visitors](http://msworddit.com/awstats.html) per month at the time of writing (with ~350k total uniques), so I've left the server running for the time being despite the code not being in the best shape.
 
 ## Functionality
 
