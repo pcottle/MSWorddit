@@ -490,9 +490,9 @@ function populateMain(response)
 	root = response.query.results.body[2].div.div[2].div.div;
 
 	var temphtml = '';
-	for(var i = 0; i < root.length; i += 2)
+	for(var i = 0; i < root.length - 3; i += 2)
 	{
-		var externalLink = root[i].div[1].p[0].a.href;
+    var externalLink = root[i].div[1].p[0].a.href;
 		var text = root[i].div[1].p[0].a.content;
 		var when = root[i].div[1].p[1].a.content;
 		var dislikes = root[i].div[0].div[0].p;
