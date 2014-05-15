@@ -127,7 +127,7 @@ function addDot()
 
 function cbfunc(response)
 {
-	//console.log("callback is back");
+	console.log("callback is back", response);
 	$('.loading').fadeOut(500);
 	thedata = response;
 	//access the current page and set the stuff
@@ -487,7 +487,7 @@ function populateMain(response)
 	//populate the click functions for the anchors and some other things
 
 	//console.log(response);
-	root = response.query.results.body[2].div.div[2].div.div;
+	root = response.query.results.body[2].div.div[3].div.div;
 
 	var temphtml = '';
 	for(var i = 0; i < root.length - 3; i += 2)
@@ -674,6 +674,10 @@ function performBottomlessLoad()
 {
 	if(pageArray[currPage].type == 'main' || pageArray[currPage].type == 'subreddit')
 	{
+    if (!thelastclass) {
+      // no bottomless loading
+      return;
+    }
 		var lastid = /id-(\w+)/.exec(thelastclass)[1];
 		currCountAfter += 25;	
 		var templink = currlink + '?count=' + currCountAfter + '&after=' + lastid;
